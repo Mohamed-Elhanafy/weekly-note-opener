@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, TFile, Notice, moment } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting, TFile, TFolder, Notice, moment, FuzzySuggestModal, TextComponent } from 'obsidian';
 
 interface WeeklyNoteOpenerSettings {
 	folder: string;
@@ -8,6 +8,48 @@ interface WeeklyNoteOpenerSettings {
 const DEFAULT_SETTINGS: WeeklyNoteOpenerSettings = {
 	folder: '2 - areas/journals/weekly',
 	dateFormat: 'YYYY-[W]ww'
+}
+
+// Folder suggestion modal
+class FolderSuggestModal extends FuzzySuggestModal<TFolder> {
+	private folders: TFolder[];
+	private onChoose: (folder: TFolder) => void;
+
+	constructor(app: App, onChoose: (folder: TFolder) => void) {
+		super(app);
+		this.onChoose = onChoose;
+		this.folders = this.getAllFolders();
+		this.setPlaceholder('Search for a folder...');
+	}
+
+	private getAllFolders(): TFolder[] {
+		const folders: TFolder[] = [];
+		const rootFolder = this.app.vault.getRoot();
+
+		const collectFolders = (folder: TFolder) => {
+			folders.push(folder);
+			for (const child of folder.children) {
+				if (child instanceof TFolder) {
+					collectFolders(child);
+				}
+			}
+		};
+
+		collectFolders(rootFolder);
+		return folders;
+	}
+
+	getItems(): TFolder[] {
+		return this.folders;
+	}
+
+	getItemText(folder: TFolder): string {
+		return folder.path || '/';
+	}
+
+	onChooseItem(folder: TFolder, evt: MouseEvent | KeyboardEvent): void {
+		this.onChoose(folder);
+	}
 }
 
 export default class WeeklyNoteOpener extends Plugin {
@@ -87,21 +129,36 @@ class WeeklyNoteOpenerSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Weekly Note Opener Settings'});
+		containerEl.createEl('h2', { text: 'Weekly Note Opener Settings' });
+
+		let folderTextComponent: TextComponent;
 
 		new Setting(containerEl)
 			.setName('Weekly Notes Folder')
 			.setDesc('Path to the folder where weekly notes are stored.')
-			.addText(text => text
-				.setPlaceholder('Example: 2 - areas/journals/weekly')
-				.setValue(this.plugin.settings.folder)
-				.onChange(async (value) => {
-					this.plugin.settings.folder = value;
-					await this.plugin.saveSettings();
+			.addText(text => {
+				folderTextComponent = text;
+				text
+					.setPlaceholder('Example: 2 - areas/journals/weekly')
+					.setValue(this.plugin.settings.folder)
+					.onChange(async (value) => {
+						this.plugin.settings.folder = value;
+						await this.plugin.saveSettings();
+					});
+			})
+			.addButton(button => button
+				.setButtonText('Browse')
+				.onClick(() => {
+					new FolderSuggestModal(this.app, (folder) => {
+						const folderPath = folder.path || '/';
+						this.plugin.settings.folder = folderPath;
+						folderTextComponent.setValue(folderPath);
+						this.plugin.saveSettings();
+					}).open();
 				}));
 
 		new Setting(containerEl)
@@ -116,3 +173,4 @@ class WeeklyNoteOpenerSettingTab extends PluginSettingTab {
 				}));
 	}
 }
+
