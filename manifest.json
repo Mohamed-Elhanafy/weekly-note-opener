@@ -1,0 +1,10 @@
+{
+	"id": "weekly-note-opener",
+	"name": "Weekly Note Opener",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Opens the current week's note, creating it if it doesn't exist.",
+	"author": "Mohamed Elhanafy",
+	"authorUrl": "https://github.com/Mohamed-Elhanafy",
+	"isDesktopOnly": false
+}
